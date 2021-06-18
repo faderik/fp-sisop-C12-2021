@@ -19,6 +19,7 @@
 
 char cred[100];
 int isValid = 0;
+char activeDb[100];
 
 void clear_buffer(char *b)
 {
@@ -183,9 +184,56 @@ int makeDb(int sock, char dbName[20])
 
   if (isSuces != 0)
   {
-    fprintf(fp, "%s\t%s\n", dbName, "root:root");
-    fprintf(fp, "%s\t%s\n", dbName, cred);
+    fprintf(fp, "%s|%s\n", dbName, "root:root");
+    fprintf(fp, "%s|%s\n", dbName, cred);
     printf("DB %s Created\n", dbName);
+  }
+
+  sprintf(sent, "%d", isSuces);
+  send(sock, sent, BUFSIZ, 0);
+
+  fclose(fp);
+  return isSuces;
+}
+
+int isUseDb(int sock, char com[][100])
+{
+  if (komper(com[0], "use") != 0)
+  {
+    notCmd(sock);
+    return 0;
+  }
+
+  send(sock, "1 CMD : [Use DB]", BUFSIZ, 0);
+  return 1;
+}
+
+int useDb(int sock, char dbName[20])
+{
+  FILE *fp;
+  fp = fopen("dbList.csv", "a+");
+  char sent[BUFSIZ];
+  int isSuces = 0;
+  char linedb[50];
+  char dbpluscred[200];
+
+  sprintf(dbpluscred, "%s|%s", dbName, cred);
+
+  while (fscanf(fp, "%s", linedb) != EOF)
+  {
+    // fprintf(stdout, "|%s|%s|\n", dbpluscred, linedb);
+
+    if (!strcmp(dbpluscred, linedb))
+    {
+      strcpy(activeDb, dbName);
+      printf("USING DB : %s\n", linedb);
+      isSuces = 1;
+      break;
+    }
+    else
+    {
+      isSuces = 0;
+    }
   }
 
   sprintf(sent, "%d", isSuces);
@@ -224,8 +272,12 @@ void mainApp(int sock)
     }
     else if (isValid == 1)
     {
+      printf("[ISVALID] : %d | [ISROOT] : %d\n", isValid, isRoot);
+      printf("[CRED] : %s\n", cred);
+      printf("[DB] : %s\n", activeDb);
+
       read(sock, cmd, BUFSIZ);
-      printf("Command : %s\n", cmd);
+      printf("[CMD] : %s\n", cmd);
 
       int i = splitString(com, cmd, " ,=();");
 
@@ -243,8 +295,12 @@ void mainApp(int sock)
           makeDb(sock, com[2]);
         }
       }
-      else if (i == 6) // untuk command yang panjangnya 6 kata
+      else if (i == 2) // untuk command yang panjangnya 6 kata
       {
+        if (isUseDb(sock, com))
+        {
+          useDb(sock, com[1]);
+        }
       }
       else
       {
@@ -311,7 +367,7 @@ void launchServer()
 
   while (1)
   {
-    printf("While launchServer()\n");
+    // printf("While launchServer()\n");
     if ((socketfd = accept(server_fd, (struct sockaddr *)&address, (socklen_t *)&addrlen)) < 0)
     {
       perror("accept failed");
