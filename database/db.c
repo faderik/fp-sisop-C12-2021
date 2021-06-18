@@ -90,7 +90,7 @@ int splitString(char res[][100], char toSplit[], const char delimiter[])
 void notCmd(int sock)
 {
   printf("%s\n", "Command Invalid");
-  send(sock, "Command Invalid", BUFSIZ, 0);
+  send(sock, "0 Command Invalid", BUFSIZ, 0);
 }
 
 int isCreateUser(int sock, char com[][100], int isRoot)
@@ -121,7 +121,24 @@ int isCreateUser(int sock, char com[][100], int isRoot)
     return 0;
   }
 
-  send(sock, "CMD : [Create User]", BUFSIZ, 0);
+  send(sock, "1 CMD : [Create User]", BUFSIZ, 0);
+  return 1;
+}
+
+int isCreateDB(int sock, char com[][100])
+{
+  if (komper(com[0], "create") != 0)
+  {
+    notCmd(sock);
+    return 0;
+  }
+  if (komper(com[1], "database") != 0)
+  {
+    notCmd(sock);
+    return 0;
+  }
+
+  send(sock, "1 CMD : [Create DB]", BUFSIZ, 0);
   return 1;
 }
 
@@ -152,12 +169,30 @@ int reg(int sock, char uname[20], char pwd[20])
     printf("Cred %s Registered\n", bufCred);
     isReg = 1;
   }
+}
 
-  sprintf(sent, "%d", isReg);
+int makeDb(int sock, char dbName[20])
+{
+  FILE *fp;
+  fp = fopen("dbList.csv", "a+");
+  int isSuces = 0;
+  char sent[BUFSIZ];
+
+  mkdir(dbName, 0777);
+  isSuces = 1;
+
+  if (isSuces != 0)
+  {
+    fprintf(fp, "%s\t%s\n", dbName, "root:root");
+    fprintf(fp, "%s\t%s\n", dbName, cred);
+    printf("DB %s Created\n", dbName);
+  }
+
+  sprintf(sent, "%d", isSuces);
   send(sock, sent, BUFSIZ, 0);
 
   fclose(fp);
-  return isReg;
+  return isSuces;
 }
 
 void mainApp(int sock)
@@ -198,14 +233,15 @@ void mainApp(int sock)
       {
         if (isCreateUser(sock, com, isRoot))
         {
-          if (reg(sock, com[2], com[5]) != 1)
-          {
-            continue;
-          }
+          reg(sock, com[2], com[5]);
         }
       }
-      else if (i == 4) // untuk command yang panjangnya 4 kata
+      else if (i == 3) // untuk command yang panjangnya 4 kata
       {
+        if (isCreateDB(sock, com))
+        {
+          makeDb(sock, com[2]);
+        }
       }
       else if (i == 6) // untuk command yang panjangnya 6 kata
       {

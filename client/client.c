@@ -111,6 +111,7 @@ void menuApp(int sock)
   char pub[100];
   char thn[4];
   char filePth[100];
+  int cmdStat = 0;
 
   // sending root status
   if (isRooot())
@@ -143,16 +144,21 @@ void menuApp(int sock)
       // Checking CMD
       send(sock, cmd, BUFSIZ, 0); // sending cmd to db
       read(sock, buffer, BUFSIZ); // receive respond from db [cek command]
+      cmdStat = buffer[0] - '0';
+      // printf("CMD STAT : %d", cmdStat);
 
       printf("%s\n", buffer);
       clear_buffer(buffer);
 
       // Klarifikasi setelah CMD dijalankan
-      read(sock, buffer, BUFSIZ); // receive respond from db [isReg]
-      if (buffer[0] == 1 + '0')
-        printf("Command Success\n");
-      else
-        printf("Command Failed\n");
+      if (cmdStat != 0)
+      {
+        read(sock, buffer, BUFSIZ); // receive respond from db [isReg]
+        if (buffer[0] == 1 + '0')
+          printf("Command Success\n");
+        else
+          printf("Command Failed\n");
+      }
     }
   }
   printf("BREAKED !\n");
