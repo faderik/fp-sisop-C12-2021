@@ -17,7 +17,7 @@
 #define HANDSHAKE "800"
 #define SUCCESS "200"
 
-char cred[50];
+char cred[100];
 int isValid = 0;
 
 void clear_buffer(char *b)
@@ -30,21 +30,20 @@ void clear_buffer(char *b)
 int cekCred(int sock)
 {
   FILE *fp = fopen("user.txt", "r");
-  char *locCred = malloc(sizeof(char) * 50);
+  char *locCred = malloc(sizeof(char) * 100);
   int q;
-  for (q = 0; q < 50; q++)
+  for (q = 0; q < 100; q++)
     locCred[q] = '\0';
 
   char buffer[BUFSIZ];
   char sent[BUFSIZ];
-  int isValid = 0;
 
-  memset(buffer, 0, sizeof(buffer));
+  memset(buffer, 0, BUFSIZ);
   read(sock, buffer, BUFSIZ);
 
   while (fscanf(fp, "%s", locCred) != EOF)
   {
-    if (!strcmp(locCred, buffer))
+    if (strcmp(locCred, buffer) == 0)
     {
       isValid = 1;
       strcpy(cred, locCred);
@@ -52,6 +51,7 @@ int cekCred(int sock)
     }
     else
     {
+      isValid = 0;
       for (q = 0; q < 100; q++)
         locCred[q] = '\0';
     }
@@ -89,12 +89,17 @@ int splitString(char res[][100], char toSplit[], const char delimiter[])
 
 void notCmd(int sock)
 {
-  printf("%s\n", "INVALIDDDD");
-  send(sock, "Command Invalid", 100, 0);
+  printf("%s\n", "Command Invalid");
+  send(sock, "Command Invalid", BUFSIZ, 0);
 }
 
-int isCreateUser(int sock, char com[][100])
+int isCreateUser(int sock, char com[][100], int isRoot)
 {
+  if (isRoot == 0)
+  {
+    notCmd(sock);
+    return 0;
+  }
   if (komper(com[0], "create") != 0)
   {
     notCmd(sock);
@@ -115,31 +120,63 @@ int isCreateUser(int sock, char com[][100])
     notCmd(sock);
     return 0;
   }
-  send(sock, "CMD : [Create User]", 100, 0);
+
+  send(sock, "CMD : [Create User]", BUFSIZ, 0);
   return 1;
+}
+
+int reg(int sock, char uname[20], char pwd[20])
+{
+  FILE *fp;
+  fp = fopen("user.txt", "a+");
+
+  char sent[BUFSIZ];
+  int isReg = 1;
+
+  char bufCred[100];
+  char usrCred[100];
+
+  sprintf(bufCred, "%s:%s", uname, pwd);
+  while (fscanf(fp, "%s", usrCred) != EOF)
+  {
+    if (!strcmp(usrCred, bufCred))
+    {
+      printf("Cred : %s Already exist\n", usrCred);
+      isReg = 0;
+      break;
+    }
+  }
+  if (isReg != 0)
+  {
+    fprintf(fp, "%s\n", bufCred);
+    printf("Cred %s Registered\n", bufCred);
+    isReg = 1;
+  }
+
+  sprintf(sent, "%d", isReg);
+  send(sock, sent, BUFSIZ, 0);
+
+  fclose(fp);
+  return isReg;
 }
 
 void mainApp(int sock)
 {
   char buffer[BUFSIZ];
   char cmd[BUFSIZ] = {0};
-  char cred[100];
   char com[20][100];
   int isRoot = 0;
   int q;
   for (q = 0; q < 100; q++)
     cred[q] = '\0';
 
-  printf("ROOT : %s\n", cred);
-
   // receive root status
-  read(sock, buffer, 1);
+  read(sock, buffer, BUFSIZ);
   if (buffer[0] == '1')
   {
     isRoot = 1;
   }
-
-  printf("%d\n", isRoot);
+  printf("ROOT : %d\n", isRoot);
 
   while (1)
   {
@@ -159,10 +196,12 @@ void mainApp(int sock)
 
       if (i == 6) // untuk command yang panjangnya 5 kata
       {
-        if (isCreateUser(sock, com))
+        if (isCreateUser(sock, com, isRoot))
         {
-          printf("crete user : [%s:%s]\n", com[2], com[5]);
-          // do create user
+          if (reg(sock, com[2], com[5]) != 1)
+          {
+            continue;
+          }
         }
       }
       else if (i == 4) // untuk command yang panjangnya 4 kata

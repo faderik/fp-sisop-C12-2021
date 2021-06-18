@@ -83,9 +83,10 @@ int cekCred(int sock, char *creden)
   char buffer[BUFSIZ];
   char cred[100];
   strcpy(cred, creden);
+  printf("|%s|\n", cred);
 
-  send(sock, cred, sizeof(cred), 0);
-  read(sock, buffer, sizeof(buffer));
+  send(sock, cred, BUFSIZ, 0);
+  read(sock, buffer, BUFSIZ);
 
   if (buffer[0] == 1 + '0')
   {
@@ -113,9 +114,9 @@ void menuApp(int sock)
 
   // sending root status
   if (isRooot())
-    send(sock, "1", 1, 0);
+    send(sock, "1", BUFSIZ, 0);
   else
-    send(sock, "0", 1, 0);
+    send(sock, "0", BUFSIZ, 0);
 
   while (1)
   {
@@ -131,16 +132,27 @@ void menuApp(int sock)
       printf("Check Cred ....\n");
       if (cekCred(sock, cred))
         isValid = 1;
+      else
+        isValid = 0;
     }
     else if (isValid == 1)
     {
       printf("Enter command : \n");
       scanf(" %[^\n]c", cmd);
 
+      // Checking CMD
       send(sock, cmd, BUFSIZ, 0); // sending cmd to db
-      read(sock, buffer, BUFSIZ); // receive respond from db
+      read(sock, buffer, BUFSIZ); // receive respond from db [cek command]
 
       printf("%s\n", buffer);
+      clear_buffer(buffer);
+
+      // Klarifikasi setelah CMD dijalankan
+      read(sock, buffer, BUFSIZ); // receive respond from db [isReg]
+      if (buffer[0] == 1 + '0')
+        printf("Command Success\n");
+      else
+        printf("Command Failed\n");
     }
   }
   printf("BREAKED !\n");
@@ -170,7 +182,6 @@ int main(int argc, char *argv[])
   if (isRooot())
   {
     sprintf(cred, "%s:%s", "root", "root");
-    isValid = 1;
     printf("%s\n", cred);
   }
   else
